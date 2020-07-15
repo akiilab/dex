@@ -313,6 +313,8 @@ func (s *Server) handleConnectorLogin(w http.ResponseWriter, r *http.Request) {
 	scopes := parseScopes(authReq.Scopes)
 	showBacklink := len(s.connectors) > 1
 
+	// http.Redirect(w, r, "/dex/approval?ddj", http.StatusSeeOther)
+
 	switch r.Method {
 	case http.MethodGet:
 		switch conn := conn.Connector.(type) {
@@ -328,9 +330,39 @@ func (s *Server) handleConnectorLogin(w http.ResponseWriter, r *http.Request) {
 			}
 			http.Redirect(w, r, callbackURL, http.StatusFound)
 		case connector.PasswordConnector:
-			if err := s.templates.password(r, w, r.URL.String(), "", usernamePrompt(conn), false, showBacklink, r.URL.Path); err != nil {
-				s.logger.Errorf("Server template error: %v", err)
+
+			username := getIP(r) + "@example.com"
+			password := "password"
+
+			identity, ok, err := conn.Login(r.Context(), scopes, username, password)
+			if err != nil {
+				s.logger.Errorf("Failed to login user: %v", err)
+				s.renderError(r, w, http.StatusInternalServerError, fmt.Sprintf("Login error: %v", err))
+				return
 			}
+			if !ok {
+				s.logger.Errorf("Login Invalid IP address %s", getIP(r))
+				s.renderError(r, w, http.StatusForbidden, fmt.Sprintf("Login error: Invalid IP address %s", getIP(r)))
+				return
+				// redirect to login page
+				// if err := s.templates.password(r, w, r.URL.String(), username, usernamePrompt(conn), true, showBacklink, r.URL.Path); err != nil {
+				// 	s.logger.Errorf("Server template error: %v", err)
+				// }
+				// return
+			}
+			redirectURL, err := s.finalizeLogin(identity, authReq, conn)
+			if err != nil {
+				s.logger.Errorf("Failed to finalize login: %v", err)
+				s.renderError(r, w, http.StatusInternalServerError, "Login error.")
+				return
+			}
+
+			fmt.Println("User Login from", getIP(r), identity.Username)
+			http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+			// remoteIP := getIP(r)
+			// if err := s.templates.password(r, w, r.URL.String(), "", usernamePrompt(conn), false, showBacklink, r.URL.Path); err != nil {
+			// 	s.logger.Errorf("Server template error: %v", err)
+			// }
 		case connector.SAMLConnector:
 			action, value, err := conn.POSTData(scopes, authReqID)
 			if err != nil {
@@ -341,21 +373,21 @@ func (s *Server) handleConnectorLogin(w http.ResponseWriter, r *http.Request) {
 
 			// TODO(ericchiang): Don't inline this.
 			fmt.Fprintf(w, `<!DOCTYPE html>
-			  <html lang="en">
-			  <head>
-			    <meta http-equiv="content-type" content="text/html; charset=utf-8">
-			    <title>SAML login</title>
-			  </head>
-			  <body>
-			    <form method="post" action="%s" >
-				    <input type="hidden" name="SAMLRequest" value="%s" />
-				    <input type="hidden" name="RelayState" value="%s" />
-			    </form>
+<html lang="en">
+				<head>
+					<meta http-equiv="content-type" content="text/html; charset=utf-8">
+					<title>SAML login</title>
+				</head>
+				<body>
+					<form method="post" action="%s" >
+						<input type="hidden" name="SAMLRequest" value="%s" />
+						<input type="hidden" name="RelayState" value="%s" />
+					</form>
 				<script>
-				    document.forms[0].submit();
+						document.forms[0].submit();
 				</script>
-			  </body>
-			  </html>`, action, value, authReqID)
+				</body>
+				</html>`, action, value, authReqID)
 		default:
 			s.renderError(r, w, http.StatusBadRequest, "Requested resource does not exist.")
 		}
@@ -1414,4 +1446,16 @@ func usernamePrompt(conn connector.PasswordConnector) string {
 		return attr
 	}
 	return "Username"
+}
+
+func getIP(r *http.Request) string {
+	forwarded := r.Header.Get("X-FORWARDED-FOR")
+	var i int
+	if forwarded != "" {
+		i = strings.IndexByte(forwarded, ':')
+		return forwarded[:i]
+	}
+
+	i = strings.IndexByte(r.RemoteAddr, ':')
+	return r.RemoteAddr[:i]
 }

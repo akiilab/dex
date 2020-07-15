@@ -1,0 +1,20 @@
+#!/bin/bash
+
+IP=$1
+User=$2
+
+Email="$IP@example.com"
+
+Hash='$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W'
+UserID="08a8684b-db88-4b73-90a9-3c$User"
+
+echo "EMAIL:    $Email"
+echo "USERNAME: $User"
+echo "PASSWORD: $Hash"
+echo "USER_ID:  $UserID"
+
+sqlite3 examples/dex.db "insert into password (email,hash,username,user_id) \
+         values (\"$Email\",\"$Hash\",\"$User\",\"$UserID\");"
+
+# sqlite3 examples/dex.db "select * from password;"
+

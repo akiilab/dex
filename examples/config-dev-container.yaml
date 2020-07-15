@@ -10,7 +10,7 @@ issuer: http://192.168.0.126:5556/dex
 storage:
   type: sqlite3
   config:
-    file: examples/dex.db
+    file: /config/dex.db
 
   # type: mysql
   # config:
