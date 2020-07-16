@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: dex
+  name: dex
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dex
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: dex
+    spec:
+      containers:
+      - image: akiicat/dex
+        name: dex
+        args: 
+        - serve
+        - examples/config-dev.yaml
+        resources: {}
+        ports:
+        - containerPort: 5556
+        volumeMounts:
+        - mountPath: /examples
+          name: dex-volume
+      volumes:
+      - name: dex-volume
+        hostPath:
+          path: /root/go/src/github.com/akiilab/dex/examples
+status: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: dex-client
+  name: dex-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dex-client
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: dex-client
+    spec:
+      containers:
+      - image: obitech/dex-example-app
+        name: dex-example-app
+        args: 
+        - --issuer
+        - http://192.168.0.126:5556/dex
+        - --listen
+        - http://0.0.0.0:5555
+        - --redirect-uri
+        - http://192.168.0.126:5555/callback
+        resources: {}
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: dex
+  name: dex
+spec:
+  externalIPs:
+  - 192.168.0.126
+  ports:
+  - port: 5556
+    protocol: TCP
+    targetPort: 5556
+  selector:
+    app: dex
+status:
+  loadBalancer: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: dex-client
+  name: dex-client
+spec:
+  externalIPs:
+  - 192.168.0.126
+  ports:
+  - port: 5555
+    protocol: TCP
+    targetPort: 5555
+  selector:
+    app: dex-client
+status:
+  loadBalancer: {}
