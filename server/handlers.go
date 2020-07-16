@@ -334,6 +334,12 @@ func (s *Server) handleConnectorLogin(w http.ResponseWriter, r *http.Request) {
 			username := getIP(r) + "@example.com"
 			password := "password"
 
+			forwarded := r.Header.Get("X-FORWARDED-FOR")
+			remoteIP := r.RemoteAddr
+
+			s.logger.Infof("FORWARDED:  %v", forwarded)
+			s.logger.Infof("REMOTEADDR: %v", remoteIP)
+			
 			identity, ok, err := conn.Login(r.Context(), scopes, username, password)
 			if err != nil {
 				s.logger.Errorf("Failed to login user: %v", err)
