@@ -17,6 +17,7 @@ spec:
       labels:
         app: dex
     spec:
+      hostNetwork: true
       containers:
       - image: akiicat/dex
         name: dex
@@ -59,11 +60,11 @@ spec:
         name: dex-example-app
         args: 
         - --issuer
-        - http://192.168.0.126:5556/dex
+        - http://192.168.0.249:5556/dex
         - --listen
         - http://0.0.0.0:5555
         - --redirect-uri
-        - http://192.168.0.126:5555/callback
+        - http://192.168.0.248:5555/callback
         resources: {}
 status: {}
 ---
@@ -75,8 +76,8 @@ metadata:
     app: dex
   name: dex
 spec:
-  externalIPs:
-  - 192.168.0.126
+  type: LoadBalancer
+  loadBalancerIP: 192.168.0.249
   ports:
   - port: 5556
     protocol: TCP
@@ -94,8 +95,8 @@ metadata:
     app: dex-client
   name: dex-client
 spec:
-  externalIPs:
-  - 192.168.0.126
+  type: LoadBalancer
+  loadBalancerIP: 192.168.0.248
   ports:
   - port: 5555
     protocol: TCP
